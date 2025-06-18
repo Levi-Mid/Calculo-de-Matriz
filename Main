@@ -1,0 +1,191 @@
+def obtem_matriz(nome_completo_do_arquivo):
+    matriz = []
+    try:
+        with open(nome_completo_do_arquivo, "r") as arquivo:
+            for linha in arquivo:
+                if linha.strip() == "":
+                    continue  # Ignora linhas em branco
+                parte = linha.split()
+                nova_linha = []
+                for item in parte:
+                    try:
+                        nova_linha.append(float(item))
+                    except ValueError:
+                        raise ValueError(
+                            f"Valor inválido encontrado: '{item}'. Apenas números são permitidos."
+                        )
+                matriz.append(nova_linha)
+    except FileNotFoundError:
+        raise ValueError("Arquivo não encontrado.")
+
+    if len(matriz) < 2:
+        raise ValueError("Poucas linhas.")
+
+    tamanho_linha = len(matriz[0])
+    for idx, linha in enumerate(matriz):
+        if len(linha) != tamanho_linha:
+            raise ValueError(
+                f"Linhas de tamanhos diferentes. Linha {idx+1} tem tamanho {len(linha)}, esperado {tamanho_linha}."
+            )
+
+    if tamanho_linha != len(matriz) + 1:
+        raise ValueError(
+            "A quantidade de colunas deve ser igual à quantidade de linhas + 1."
+        )
+
+    return matriz
+
+
+def divideIndice(matriz, primeiraLista, segundaLista):
+    resultadoPar = []
+    for i in range(len(matriz[0])):
+        denominador = matriz[segundaLista][i]
+        numerador = matriz[primeiraLista][i]
+        if denominador != 0:
+            resultado1 = numerador / denominador
+            resultadoPar.append(resultado1)
+        else:
+            resultadoPar.append("∞") 
+    return resultadoPar
+
+
+def criaPares(matriz, qtdLinhas):
+    pares = []
+    for i in range(qtdLinhas):
+        for j in range(i + 1, qtdLinhas):
+            pares.append([i, j])
+    return pares
+
+
+def verificaMatrizValida(matriz):
+    qtdLinhas = len(matriz)
+    # Verifica se cada linha tem exatamente qtdLinhas + 1 colunas
+    for i in range(qtdLinhas):
+        if len(matriz[i]) != qtdLinhas + 1:
+            return [False, qtdLinhas]
+
+    pares = criaPares(matriz, qtdLinhas)
+
+    for par in pares:
+        i = par[0]
+        j = par[1]
+        linha1 = matriz[i]
+        linha2 = matriz[j]
+
+        proporcao = None
+        dependente = True
+        posicao = 0
+        while posicao < qtdLinhas:  
+            a = linha1[posicao]
+            b = linha2[posicao]
+
+            if a == 0 and b == 0:
+                posicao += 1
+                continue
+            elif a == 0 or b == 0:
+                dependente = False
+                break
+            else:
+                r = a / b
+                if proporcao is None:
+                    proporcao = r
+                elif r > proporcao or r < proporcao:
+                    dependente = False
+                    break
+            posicao += 1
+        if dependente:
+            return [False]
+    return [True, qtdLinhas]
+
+
+def passo_gauss(matriz, linha_pivo):
+    n = len(matriz)
+    m = len(matriz[0])
+
+    pivo = matriz[linha_pivo][linha_pivo]
+    if pivo == 0:
+        raise ValueError(f"Pivô zero na linha {linha_pivo + 1}.")
+    # Normaliza a linha do pivô
+    for j in range(m):
+        matriz[linha_pivo][j] /= pivo
+    # Zera a coluna do pivô nas outras linhas
+    for i in range(n):
+        if i != linha_pivo:
+            fator = matriz[i][linha_pivo]
+            for j in range(m):
+                matriz[i][j] -= fator * matriz[linha_pivo][j]
+
+    return matriz
+
+def _gera_lentes (valores, lente, lentes): #gera lentes
+    if valores==[]:
+        lentes.append(lente)
+    else:
+        for lin in range(len(valores)):
+            _gera_lentes(valores[0:lin]+valores[lin+1:len(valores)],lente+[valores[lin]],lentes)
+
+def gera_lentes (valores): #retorna lentes geradas
+    lentes=[]
+    _gera_lentes(valores,[],lentes)
+    return lentes
+
+def verifica_lente(lentes): 
+    for i in range(len(lentes)): #esse loop passa por cada uma das lentes
+        coluna = 0
+        qtd = 0 #essa varivel vai falar em quantas linhas n foi achado um 0 na diagonal
+        for j in range(len(lentes[i])): 
+            if lentes[i][j][coluna] != 0: #vai falar se o zero n foi achado
+                qtd += 1
+            if qtd == len(lentes[i]): #se nenhum zero foi achado na diagonal de todas as linhas, vai retornar a lente encontrada
+                return lentes[i]
+            coluna += 1
+    return False
+
+
+def imprime_matriz(matriz):
+    for linha in matriz:
+        print(["{0:3.1f}".format(x) if isinstance(x, float) else str(x) for x in linha])
+
+def main():
+    try:
+        arquivo = input("Digite o nome do arquivo com a matriz (ex: sistema.txt): ")
+        matriz = obtem_matriz(arquivo)
+        valida = verificaMatrizValida(matriz)
+
+        if not valida[0]:
+            print("Matriz inválida ou é uma simplificação, não é necessário resolver.")
+            return
+
+        gerando_lentes = gera_lentes(matriz)
+        lente_valida = verifica_lente(gerando_lentes)
+
+        if not lente_valida:
+            print("Não foi possível encontrar uma reorganização válida da matriz.")
+            return
+        
+        print("\nMatriz original:")
+        imprime_matriz(matriz)
+        matriz = lente_valida  # reorganiza a matriz com uma lente válida
+
+        for i in range(len(matriz)):
+            matriz = passo_gauss(matriz, i)
+
+        print("\nResposta:")
+        for i in range(len(matriz)):
+            print(f"x{i+1} = {matriz[i][-1]:.1f}")
+
+    except ValueError as erro:
+        print(f"Erro: {erro}")
+
+
+# Loop para fazer múltiplas execuções apos a primeira
+main()
+while True:
+    resposta = input("Gostaria de verificar outra matriz? (S/N): ").strip().upper() #tira os espaços e deixa em em maiusculo
+    if resposta != "S" and resposta != "N":
+        print('Sua resposta deve ser "S" ou "N" ')
+    elif resposta == "S":
+        main()
+    elif resposta == "N":
+        print("PROGRAMA FINALIZADO.")
+        break
